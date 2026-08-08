@@ -4,8 +4,6 @@ A working demo of Microsoft's [Agent Governance Toolkit](https://github.com/micr
 (public preview, Aug 2026) applied to a real LangGraph agent and the same
 policy applied unchanged to a CrewAI crew.
 
-Everything here runs live against OpenRouter. Nothing is faked.
-
 ---
 
 ## What the toolkit actually is
