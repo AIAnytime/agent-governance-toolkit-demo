@@ -1,0 +1,23 @@
+# Python 3.11–3.13 (3.14 not yet supported by CrewAI/LangGraph deps)
+#
+# The toolkit itself:
+agent-control-specification>=0.3.1b1,<0.4.0
+
+# Agent frameworks used in the demo:
+langgraph>=0.2
+langchain-openai>=0.2
+crewai>=0.80
+
+# Demo shell:
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-dotenv>=1.0
+rich>=13.0
+
+# ALSO REQUIRED (not a pip package):
+#   OPA — the Rego engine the ACS runtime shells out to.
+#     macOS:  brew install opa
+#     Linux:  curl -L -o /usr/local/bin/opa \
+#               https://openpolicyagent.org/downloads/latest/opa_linux_amd64_static
+#             chmod +x /usr/local/bin/opa
+#   Verify:  opa version

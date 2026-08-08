@@ -1,0 +1,113 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  policy.yaml — an Agent Control Specification (ACS) manifest
+#  Microsoft Agent Governance Toolkit
+#
+#  This ONE file is the control surface for an AI agent.
+#  It answers three questions the runtime asks on every step:
+#
+#     1. WHERE do we intervene?   -> intervention_points
+#     2. WHAT do we run there?    -> policies  (Rego / OPA)
+#     3. WHICH tools exist?       -> tools     (declared capability surface)
+#
+#  The agent code does NOT contain any of these rules. Swap this file,
+#  and the agent's behaviour changes — no redeploy of agent logic.
+# ─────────────────────────────────────────────────────────────────────────────
+
+agent_control_specification_version: "0.3.1-beta"
+
+metadata:
+  name: northwind-support-agent
+  version: "1.0"
+
+# `extends` lets a team inherit a corporate baseline manifest and only
+# override what's local. Empty here so the demo is self-contained.
+extends: []
+
+
+# ── 1. POLICIES ──────────────────────────────────────────────────────────────
+# A policy is a named, versionable decision engine. `rego` policies are
+# executed by OPA (Open Policy Agent). `bundle` is a directory of .rego files
+# resolved relative to THIS manifest. `query` is the default entrypoint.
+policies:
+  northwind:
+    type: rego
+    bundle: ./policy
+    query: data.northwind.verdict
+
+
+# ── 2. INTERVENTION POINTS ───────────────────────────────────────────────────
+# The lifecycle seams where the kernel gets to say yes / no / rewrite.
+# For each one we declare:
+#   policy_target      — the JSONPath into the runtime snapshot that the
+#                        policy is allowed to see and rewrite
+#   policy_target_kind — the semantic type (lets shared policies stay generic)
+#   policy.query       — which Rego rule decides this seam
+intervention_points:
+
+  # (a) User input, before it ever reaches the model.
+  #     This is where prompt injection dies.
+  input:
+    policy_target: "$.input"
+    policy_target_kind: user_input
+    policy:
+      id: northwind
+      query: data.northwind.input_verdict
+
+  # (b) Every tool call the model asks for, BEFORE it executes.
+  #     `tool_name_from` tells the runtime where to read the tool name,
+  #     so one policy can branch per tool.
+  pre_tool_call:
+    policy_target: "$.tool_call.args"
+    policy_target_kind: tool_args
+    tool_name_from: "$.tool_call.name"
+    policy:
+      id: northwind
+      query: data.northwind.pre_tool_call_verdict
+
+  # (c) Every tool RESULT, before the model is allowed to read it.
+  #     This is the DLP seam — secrets never enter the context window.
+  post_tool_call:
+    policy_target: "$.tool_result"
+    policy_target_kind: tool_result
+    tool_name_from: "$.tool_call.name"
+    policy:
+      id: northwind
+      query: data.northwind.post_tool_call_verdict
+
+  # (d) Final assistant output, before it reaches the user.
+  output:
+    policy_target: "$.output"
+    policy_target_kind: assistant_output
+    policy:
+      id: northwind
+      query: data.northwind.output_verdict
+
+
+# ── 3. TOOLS ─────────────────────────────────────────────────────────────────
+# The declared capability surface. A tool the manifest does not name is not
+# part of the governed system — policy can (and here does) refuse it.
+# `clearance` / `security_labels` feed information-flow rules.
+tools:
+  lookup_order:
+    type: Tool
+    id: lookup_order
+    clearance: [support, customer_data]
+    security_labels: [customer_pii]
+
+  query_orders_db:
+    type: Tool
+    id: query_orders_db
+    clearance: [support, database]
+    security_labels: [customer_pii]
+
+  issue_refund:
+    type: Tool
+    id: issue_refund
+    clearance: [support, payments]
+    security_labels: [financial_action]
+
+  send_email:
+    type: Tool
+    id: send_email
+    clearance: [support, egress]
+    security_labels: [external_egress]
